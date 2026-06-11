@@ -1417,9 +1417,20 @@ async function loadData(){
 function renderTabela(){
   let html=''; let fase='';
   jogos.forEach(j=>{
-    const tA=resolveTeam(j.teamA)||j.teamA, tB=resolveTeam(j.teamB)||j.teamB;
-    const nameA=tA&&!tA.startsWith('venc')?timeName(tA):labelVenc(j.teamA);
-    const nameB=tB&&!tB.startsWith('venc')?timeName(tB):labelVenc(j.teamB);
+    // Só resolve o time (substitui placeholder pelo nome real) se o resultado já foi determinado
+    // Para Semifinal/Final/3º lugar: só mostra o time se o jogo classificatório estiver encerrado
+    const isPlaceholder = (id) => /^([12][ab]|venc\d+|perd\d+)$/.test(id);
+    const resolvedA = resolveTeam(j.teamA);
+    const resolvedB = resolveTeam(j.teamB);
+    // Para semifinais e fases finais: só usa o time resolvido se a fase anterior tiver jogos encerrados
+    const gruposEncerrados = jogos.filter(x=>x.fase.startsWith('Grupos')&&x.encerrado).length;
+    const totalGrupos = jogos.filter(x=>x.fase.startsWith('Grupos')).length;
+    const useResolvedA = isPlaceholder(j.teamA) ? (j.fase.startsWith('Grupos') || gruposEncerrados===totalGrupos ? resolvedA : null) : resolvedA;
+    const useResolvedB = isPlaceholder(j.teamB) ? (j.fase.startsWith('Grupos') || gruposEncerrados===totalGrupos ? resolvedB : null) : resolvedB;
+    const tA = useResolvedA || j.teamA;
+    const tB = useResolvedB || j.teamB;
+    const nameA = (useResolvedA && !isPlaceholder(j.teamA)) ? timeName(tA) : (useResolvedA && gruposEncerrados===totalGrupos ? timeName(tA) : labelVenc(j.teamA));
+    const nameB = (useResolvedB && !isPlaceholder(j.teamB)) ? timeName(tB) : (useResolvedB && gruposEncerrados===totalGrupos ? timeName(tB) : labelVenc(j.teamB));
     const winner=j.encerrado?getWinner(j,tA,tB):null;
     if(j.fase!==fase){ fase=j.fase; const ic=fase==='Final'?'🏆':fase==='Semifinal'?'⚡':'⚽'; html+=`<div class="fase-title">${ic} ${fase}</div>`; }
     let scorersHTML='';
@@ -1435,7 +1446,7 @@ function renderTabela(){
       <div class="jogo-info">
         <div class="jogo-hora">📅 ${j.data} · ${j.hora} · Recanto Central</div>
         <div class="jogo-confronto">
-          <span class="team-name ${winner===tA?'winner':''}">${badgeImg(j.teamA,'sm')} ${nameA}</span>
+          <span class="team-name ${winner===tA?'winner':''}">${badgeImg(tA,'sm')} ${nameA}</span>
           ${j.encerrado
             ?`<div class="placar-box">
                 <span class="placar-num">${j.golA}</span>
@@ -1443,7 +1454,7 @@ function renderTabela(){
                 <span class="placar-num">${j.golB}</span>
               </div>${(j.penA!==undefined&&j.penB!==undefined)?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:0.7rem;color:rgba(58,130,247,0.8);letter-spacing:1px;margin-left:4px;white-space:nowrap;">(PEN ${j.penA}–${j.penB})</div>`:''}` 
             :`<div class="placar-box"><span class="placar-pending">VS</span></div>`}
-          <span class="team-name right ${winner===tB?'winner':''}">${nameB} ${badgeImg(j.teamB,'sm')}</span>
+          <span class="team-name right ${winner===tB?'winner':''}">${nameB} ${badgeImg(tB,'sm')}</span>
         </div>${scorersHTML}
       </div>
       <span class="status-pill ${j.encerrado?'encerrado':'pendente'}">${j.wo?'W.O.':j.encerrado?'ENCERRADO':'PENDENTE'}</span>
